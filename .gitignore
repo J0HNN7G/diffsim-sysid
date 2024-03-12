@@ -1,13 +1,15 @@
-# Personal
+### Personal ###
 TODO
+# configs
+cfg/*
+!cfg/templates/
+# data
+data/sets/*
+# checkpoints
+ckpt/*
 
-
-###############
-# Boilerplate #
-###############
-
-# Created by https://www.toptal.com/developers/gitignore/api/python,jupyternotebooks,ros,c++
-# Edit at https://www.toptal.com/developers/gitignore?templates=python,jupyternotebooks,ros,c++
+# Created by https://www.toptal.com/developers/gitignore/api/python,ros,jupyternotebooks,c++
+# Edit at https://www.toptal.com/developers/gitignore?templates=python,ros,jupyternotebooks,c++
 
 ### C++ ###
 # Prerequisites
@@ -276,4 +278,4 @@ qtcreator-*
 # Catkin custom files
 CATKIN_IGNORE
 
-# End of https://www.toptal.com/developers/gitignore/api/python,jupyternotebooks,ros,c++
+# End of https://www.toptal.com/developers/gitignore/api/python,ros,jupyternotebooks,c++
