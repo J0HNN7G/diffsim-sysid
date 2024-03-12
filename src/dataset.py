@@ -4,13 +4,7 @@ import os
 
 import tensorflow_datasets as tfds
 
-import numpy as np
-from numpy.lib.stride_tricks import sliding_window_view
-
-import torch
-from pytorch3d.transforms import quaternion_to_matrix, matrix_to_rotation_6d
-
-from sssa.config import cfg
+from src.config import cfg
 import data.movi_a
 import data.movi_b
 
