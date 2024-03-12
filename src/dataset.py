@@ -5,8 +5,8 @@ import os
 import tensorflow_datasets as tfds
 
 from src.config import cfg
-import data.movi_a
-import data.movi_b
+import src.data.movi_a
+import src.data.movi_b
 
 
 # Constants for mapping configuration to features in MOVI A and B datasets
