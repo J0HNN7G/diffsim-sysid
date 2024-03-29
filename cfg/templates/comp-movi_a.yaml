@@ -1,0 +1,26 @@
+DATA:
+  set: movi_a
+  max_objs: 10
+  fps: 12
+  fpv: 24
+  height: 256
+  width: 256
+
+SYS_ID:
+  VIS:
+    include: True
+    weight: 1.0
+  GEOM:
+    include: True
+  OPTIM:
+    optim: adam
+    lr: 0.01
+
+EVAL:
+  PARAM:
+    DENSITY:
+      include: True
+    FRICTION:
+      include: True
+    RESTITUTION:
+      include: True
