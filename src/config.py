@@ -34,8 +34,10 @@ cfg.DATA.width = 256
 # -----------------------------------------------------------------------------
 cfg.SYS_ID = CN()
 
+# just do random initialization
+cfg.SYS_ID.rand = False
 # number of iterations
-cfg.SYS_ID.iters = 4
+cfg.SYS_ID.iter = 4
 
 cfg.SYS_ID.VIS = CN()
 # include visual loss
