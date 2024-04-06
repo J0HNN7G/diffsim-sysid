@@ -7,10 +7,7 @@ DATA:
   width: 256
 
 SYS_ID:
-  VIS:
-    include: False
-  GEOM:
-    include: True
+  geom: True
   OPTIM:
     optim: adam
     lr: 0.01
@@ -18,8 +15,4 @@ SYS_ID:
 EVAL:
   PARAM:
     DENSITY:
-      include: True
-    FRICTION:
-      include: True
-    RESTITUTION:
       include: True

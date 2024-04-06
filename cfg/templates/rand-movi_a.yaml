@@ -13,7 +13,3 @@ EVAL:
   PARAM:
     DENSITY:
       include: True
-    FRICTION:
-      include: True
-    RESTITUTION:
-      include: True

@@ -1,4 +1,4 @@
-"""Differentiable Simulator"""
+"""Differentiable Sample"""
 
 import os
 from copy import deepcopy
@@ -11,9 +11,9 @@ import pytorch3d.transforms
 import openmesh
 import warp as wp
 import warp.sim as wps
-from src.warp_utils import render_usd
 # rendering
 from mitsuba.scalar_rgb import Transform4f as mit
+# rendering
 
 
 #######
@@ -194,7 +194,7 @@ CLEVR_SHAPE_BASE_INERTIA = {
 }
 
 
-class Simulator():
+class Sample():
     def __init__(self, cfg, sample):
         self.cfg = cfg
         self.sample = sample 
@@ -208,6 +208,18 @@ class Simulator():
         self.setup_physics_scene()
         self.setup_render_scene()
 
+
+    def clear(self):
+        del self.sample
+        self.sample = None
+        # render
+        del self.render_dict
+        del self.render_timestep_dict
+        self.render_dict = None
+        self.render_timestep_dict = None
+        # physics
+        self.body_q = None
+        self.body_qd = None
 
     def setup_render_scene(self):
         self.render_dict = {
@@ -394,8 +406,8 @@ class Simulator():
             obj_scale_idx = self.sample['instances']['size_label'][obj_idx]
             obj_scale = CLEVR_SIZES[obj_scale_idx] / 2.0
 
-            obj_pos = self.phys_states[time_step].body_q.numpy()[obj_idx][:3]
-            obj_rot = self.phys_states[time_step].body_q.numpy()[obj_idx][3:]
+            obj_pos = self.body_q[time_step, obj_idx][:3]
+            obj_rot = self.body_q[time_step, obj_idx][3:]
             # i,j,k,w -> i,j,k,w
             obj_rot = np.concatenate([obj_rot[3:], obj_rot[:3]])
             obj_aa = pytorch3d.transforms.quaternion_to_axis_angle(torch.tensor(obj_rot)).detach().numpy()
@@ -455,7 +467,6 @@ class Simulator():
 
         return timestep_dict
     
-
 
     def setup_physics_scene(self):
             builder = wps.ModelBuilder(up_vector=wp.vec3(UP), gravity=GRAVITY)
@@ -528,42 +539,190 @@ class Simulator():
             device = wp.get_cuda_device()
             model = builder.finalize(device, requires_grad=False)
             states = [model.state(requires_grad=False) for _ in range(SIM_STEPS+1)]
-
-            self.phys_device = device
-            self.phys_model = model
-            self.phys_states = states
-            self.phys_integrator = wp.sim.SemiImplicitIntegrator()
-            self.run_phys()
-
-
-    def run_phys(self):       
-        for i in range(SIM_STEPS):
-            self.phys_states[i].clear_forces()
-            wp.sim.collide(self.phys_model, self.phys_states[i])
-            self.phys_integrator.simulate(self.phys_model, self.phys_states[i], self.phys_states[i + 1], SIM_DT)
-
-
-    def clear(self):
-        del self.sample
-        self.sample = None
-        # render
-        del self.render_dict
-        del self.render_timestep_dict
-        self.render_dict = None
-        self.render_timestep_dict = None
-        # physics
-        del self.phys_device
-        del self.phys_model
-        del self.phys_states
-        del self.phys_integrator
-
-        self.phys_device = None
-        self.phys_model = None
-        self.phys_states = None
-        self.phys_integrator = None
-
-
-    def usd(self, stage):
-        render_usd(stage, self.phys_model, self.phys_states, SIM_DURATION, SIM_DT)
-
+            integrator = wp.sim.SemiImplicitIntegrator()
+            
+            # run simulation
+            for i in range(SIM_STEPS):
+                states[i].clear_forces()
+                wp.sim.collide(model, states[i])
+                integrator.simulate(model, states[i], states[i + 1], SIM_DT)
+            
+            self.body_q = np.array([state.body_q.numpy() for state in states])
+            self.body_qd = np.array([state.body_qd.numpy() for state in states])
     
+# for density
+# def build_phys(cfg, sample, body_q, body_qd, pred_density):
+#         builder = wps.ModelBuilder(up_vector=wp.vec3(UP), gravity=GRAVITY)
+
+#         # ground
+#         builder.set_ground_plane(ke=KE, 
+#                                  kd=KD, 
+#                                  kf=KF,
+#                                  mu=CLEVR_GROUND_MU, 
+#                                  restitution=CLEVR_GROUND_RESTITUTION)
+        
+#         for obj_idx in range(sample['metadata']['num_instances']):
+#             obj_class_idx = sample['instances']['shape_label'][obj_idx]
+#             obj_class = CLEVR_SHAPE_NAMES[obj_class_idx]
+
+#             obj_mesh_fp = os.path.join(cfg.path, CLEVR_SHAPE_OBJ_FPS[obj_class])
+#             obj_base_mass = CLEVR_SHAPE_BASE_MASS[obj_class]
+#             obj_base_inertia = CLEVR_SHAPE_BASE_INERTIA[obj_class]
+
+#             obj_scale_idx = sample['instances']['size_label'][obj_idx]
+#             obj_scale = [CLEVR_SIZES[obj_scale_idx]] * 3
+
+#             # obj_pos = body_q[obj_idx][:3]
+#             # obj_rot = body_q[obj_idx][3:]
+            
+#             obj_fric = sample['instances']['friction'][obj_idx]
+#             obj_restitution = sample['instances']['restitution'][obj_idx]
+
+#             # prior (mean)
+#             obj_density = float(pred_density[obj_idx])
+
+#             # read mesh
+#             m = openmesh.read_trimesh(obj_mesh_fp)
+#             mesh_points = np.array(m.points())
+#             mesh_indices = np.array(m.face_vertex_indices(), dtype=np.int32).flatten()
+#             mesh = wps.Mesh(vertices=mesh_points, 
+#                             indices=mesh_indices,
+#                             compute_inertia=False,
+#                             is_solid=True)
+#             mesh.has_inertia = True
+#             mesh.I = wp.mat33(obj_base_inertia)
+#             mesh.mass = obj_base_mass
+
+#             # add body
+#             obj_body_id = builder.add_body(name = f'obj_{obj_idx}')
+#             # add mesh to body
+#             builder.add_shape_mesh(body=obj_body_id,
+#                                         mesh=mesh,
+#                                         scale=obj_scale,
+#                                         density=obj_density,
+#                                         mu=obj_fric,
+#                                         ke=KE,
+#                                         kd=KD,
+#                                         kf=KF,
+#                                         restitution=obj_restitution,
+#                                         is_solid=True,
+#                                         has_ground_collision=True)
+            
+#         # set initial pose and velocities
+#         builder.body_q = deepcopy(body_q)
+#         builder.body_qd = deepcopy(body_qd)
+
+#         # model and states
+#         device = wp.get_cuda_devices()[0]
+#         model = builder.finalize(device, requires_grad=True)
+
+#         return model
+
+
+def build_phys(cfg, sample, body_q, pred_qd):
+        builder = wps.ModelBuilder(up_vector=wp.vec3(UP), gravity=GRAVITY)
+
+        # ground
+        builder.set_ground_plane(ke=KE, 
+                                 kd=KD, 
+                                 kf=KF,
+                                 mu=CLEVR_GROUND_MU, 
+                                 restitution=CLEVR_GROUND_RESTITUTION)
+        
+        for obj_idx in range(sample['metadata']['num_instances']):
+            obj_class_idx = sample['instances']['shape_label'][obj_idx]
+            obj_class = CLEVR_SHAPE_NAMES[obj_class_idx]
+
+            obj_mesh_fp = os.path.join(cfg.path, CLEVR_SHAPE_OBJ_FPS[obj_class])
+            obj_base_mass = CLEVR_SHAPE_BASE_MASS[obj_class]
+            obj_base_inertia = CLEVR_SHAPE_BASE_INERTIA[obj_class]
+
+            obj_scale_idx = sample['instances']['size_label'][obj_idx]
+            obj_scale = [CLEVR_SIZES[obj_scale_idx]] * 3
+
+            obj_pos = body_q[obj_idx][:3]
+            obj_rot = body_q[obj_idx][3:]
+            
+            obj_fric = sample['instances']['friction'][obj_idx]
+            obj_restitution = sample['instances']['restitution'][obj_idx]
+
+            # prior (mean)
+            obj_material_idx = sample['instances']['material_label'][obj_idx]
+            obj_density = CLEVR_DENSITIES[obj_material_idx]
+
+            # read mesh
+            m = openmesh.read_trimesh(obj_mesh_fp)
+            mesh_points = np.array(m.points())
+            mesh_indices = np.array(m.face_vertex_indices(), dtype=np.int32).flatten()
+            mesh = wps.Mesh(vertices=mesh_points, 
+                            indices=mesh_indices,
+                            compute_inertia=False,
+                            is_solid=True)
+            mesh.has_inertia = True
+            mesh.I = wp.mat33(obj_base_inertia)
+            mesh.mass = obj_base_mass
+
+            # add body
+            obj_origin = wp.transform(obj_pos, obj_rot)
+            obj_body_id = builder.add_body(origin=obj_origin, name = f'obj_{obj_idx}')
+            # add mesh to body
+            builder.add_shape_mesh(body=obj_body_id,
+                                        mesh=mesh,
+                                        scale=obj_scale,
+                                        density=obj_density,
+                                        mu=obj_fric,
+                                        ke=KE,
+                                        kd=KD,
+                                        kf=KF,
+                                        restitution=obj_restitution,
+                                        is_solid=True,
+                                        has_ground_collision=True)
+            
+        # set initial pose and velocities
+        builder.body_qd = pred_qd
+
+        # model and states
+        device = wp.get_cuda_devices()[0]
+        model = builder.finalize(device, requires_grad=True)
+
+        return model
+
+
+def run_phys(model, states, integrator):
+    tape = wp.Tape()
+    with tape:
+        for i in range(len(states)-1):
+            states[i].clear_forces()
+            wp.sim.collide(model, states[i])
+            integrator.simulate(model, states[i], states[i + 1], SIM_DT)
+    return tape
+
+
+def calc_density(inv_masses, sample):
+    densities = np.zeros_like(inv_masses)
+    masses = 1 / inv_masses
+    for obj_idx in range(sample['metadata']['num_instances']):
+        obj_mass = masses[obj_idx]
+
+        obj_class_idx = sample['instances']['shape_label'][obj_idx]
+        obj_class = CLEVR_SHAPE_NAMES[obj_class_idx]
+        
+        obj_base_mass = CLEVR_SHAPE_BASE_MASS[obj_class]
+
+        obj_scale_idx = sample['instances']['size_label'][obj_idx]
+        obj_scale = CLEVR_SIZES[obj_scale_idx]
+
+
+        densities[obj_idx] = obj_mass / (obj_base_mass * (obj_scale ** 3))
+    
+    return densities
+
+
+def get_density(sample):
+    densities = np.zeros(sample['metadata']['num_instances'])
+    for obj_idx in range(sample['metadata']['num_instances']):
+        obj_class_idx = sample['instances']['shape_label'][obj_idx]
+        obj_material_idx = sample['instances']['material_label'][obj_idx]
+        densities[obj_idx] = CLEVR_DENSITIES[obj_material_idx]
+
+    return densities

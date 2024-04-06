@@ -42,19 +42,13 @@ cfg.SYS_ID.rand = False
 # number of iterations
 cfg.SYS_ID.iter = 4
 
-cfg.SYS_ID.VIS = CN()
 # include visual loss
-cfg.SYS_ID.VIS.include = True
-# number of samples per pixel for rendering
-cfg.SYS_ID.VIS.spp = 4
-# visual loss weight
-cfg.SYS_ID.VIS.weight = 1.0
+cfg.SYS_ID.vis = False
+# samples per pixel for differentiable rendering
+cfg.SYS_ID.spp = 4
 
-cfg.SYS_ID.GEOM = CN()
 # include geometry loss
-cfg.SYS_ID.GEOM.include = True
-# number of samples per mesh for point clouds
-cfg.SYS_ID.GEOM.spm = 100
+cfg.SYS_ID.geom = False 
 
 cfg.SYS_ID.OPTIM = CN()
 # algorithm to use for optimization
@@ -92,14 +86,3 @@ cfg.EVAL.PARAM = CN()
 # density
 cfg.EVAL.PARAM.DENSITY  = CN()
 cfg.EVAL.PARAM.DENSITY.include = True
-cfg.EVAL.PARAM.DENSITY.prior = 1.35
-
-# friction
-cfg.EVAL.PARAM.FRICTION  = CN()
-cfg.EVAL.PARAM.FRICTION.include = True
-cfg.EVAL.PARAM.FRICTION.prior = 0.5
-
-# restitution
-cfg.EVAL.PARAM.RESTITUTION  = CN()
-cfg.EVAL.PARAM.RESTITUTION.include = True
-cfg.EVAL.PARAM.RESTITUTION.prior = 0.5
